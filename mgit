@@ -1,0 +1,55 @@
+#!/usr/bin/env escript
+
+main([]) ->
+    io:format("Usage: mgit <command> [<arg>]~n"),
+    halt(1);
+
+main([Command | _Args]) ->
+    case Command of
+        "init" -> init();
+        _ ->
+            io:format("Unknown command: ~s~n", [Command]),
+            halt(1)
+    end.
+
+init() ->
+    case filelib:is_dir(mini_git_dir()) of
+        true ->
+            io:format("~s already exists", [mini_git_dir()]);
+        false ->
+            case do_init() of
+                ok ->
+                    io:format("Initialize empty mgit repository in ~s~n", [mini_git_dir()]);
+                {error, Reason} ->
+                    io:format("Error: failed to initialize mgit repository: ~p~n", [Reason])
+            end
+    end.
+
+do_init() ->
+    maybe
+        ok ?= filelib:ensure_path(mini_git_dir()),
+        ok ?= filelib:ensure_path(objects_dir()),
+        ok ?= filelib:ensure_path(refs_dir()),
+        ok ?= filelib:ensure_path(heads_dir()),
+        ok ?= file:write_file(head_file(), <<"ref: refs/heads/masters\n">>),
+        ok ?= file:write_file(index_file(), <<>>),
+        ok ?= file:write_file(filename:join(heads_dir(), "master"), <<>>)
+    end.
+
+mini_git_dir() ->
+    ".mini_git".
+
+objects_dir() ->
+    filename:join(mini_git_dir(), "objects").
+
+refs_dir() ->
+    filename:join(mini_git_dir(), "refs").
+
+heads_dir() ->
+    filename:join(refs_dir(), "heads").
+
+head_file() ->
+    filename:join(mini_git_dir(), "HEAD").
+
+index_file() ->
+    filename:join(mini_git_dir(), "index").
