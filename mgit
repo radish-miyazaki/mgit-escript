@@ -1,5 +1,6 @@
 #!/usr/bin/env escript
 
+-spec main([string()]) -> ok.
 main([]) ->
     io:format("Usage: mgit <command> [<arg>]~n"),
     halt(1);
@@ -12,6 +13,7 @@ main([Command | _Args]) ->
             halt(1)
     end.
 
+-spec init() -> ok.
 init() ->
     case filelib:is_dir(mini_git_dir()) of
         true ->
@@ -25,31 +27,38 @@ init() ->
             end
     end.
 
+-spec do_init() -> ok | {error, term()}.
 do_init() ->
     maybe
         ok ?= filelib:ensure_path(mini_git_dir()),
         ok ?= filelib:ensure_path(objects_dir()),
         ok ?= filelib:ensure_path(refs_dir()),
         ok ?= filelib:ensure_path(heads_dir()),
-        ok ?= file:write_file(head_file(), <<"ref: refs/heads/masters\n">>),
+        ok ?= file:write_file(head_file(), <<"ref: refs/heads/master\n">>),
         ok ?= file:write_file(index_file(), <<>>),
         ok ?= file:write_file(filename:join(heads_dir(), "master"), <<>>)
     end.
 
+-spec mini_git_dir() -> file:filename().
 mini_git_dir() ->
     ".mini_git".
 
+-spec objects_dir() -> file:filename().
 objects_dir() ->
     filename:join(mini_git_dir(), "objects").
 
+-spec refs_dir() -> file:filename().
 refs_dir() ->
     filename:join(mini_git_dir(), "refs").
 
+-spec heads_dir() -> file:filename().
 heads_dir() ->
     filename:join(refs_dir(), "heads").
 
+-spec head_file() -> file:filename().
 head_file() ->
     filename:join(mini_git_dir(), "HEAD").
 
+-spec index_file() -> file:filename().
 index_file() ->
     filename:join(mini_git_dir(), "index").
