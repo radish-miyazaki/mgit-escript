@@ -41,7 +41,7 @@ do_init() ->
 
 -spec mini_git_dir() -> file:filename().
 mini_git_dir() ->
-    ".mini_git".
+    ".mgit".
 
 -spec objects_dir() -> file:filename().
 objects_dir() ->
