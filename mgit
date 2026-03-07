@@ -49,6 +49,8 @@ add([Path | _]) ->
             case do_add(Path) of
                 {ok, Sha1} ->
                     io:format("Added ~s to index with hash ~s~n", [Path, Sha1]);
+                {error, already_exists} ->
+                    io:format("Error: ~s already added~n", [Path]);
                 {error, Reason} ->
                     io:format("Error: failed to add ~s to index: ~p~n", [Path, Reason])
             end
@@ -92,7 +94,7 @@ hash_object(Data) ->
                 ok -> {ok, Sha1};
                 {error, Reason} -> {error, Reason}
             end;
-        _ -> {ok, Sha1}
+        _ -> {error, already_exists}
     end.
 
 -spec read_index() -> {ok, map()} | {error, term()}.
