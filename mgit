@@ -112,8 +112,14 @@ read_index() ->
 read_loop(Fd, Acc) ->
     case file:read_line(Fd) of
         {ok, Line} ->
-            [Path, Sha1] = string:split(Line, " "),
-            read_loop(Fd, Acc#{Path => Sha1});
+            TrimmedLine = string:trim(Line),
+            case string:split(TrimmedLine, " ") of
+                [Path, Sha1] when Path =/= <<>>, Sha1 =/= <<>> ->
+                    read_loop(Fd, Acc#{Path => Sha1});
+                _ ->
+                    % ignore empty or invalid lines
+                    read_loop(Fd, Acc)
+            end;
         eof -> {ok, Acc};
         {error, Reason} -> {error, Reason}
     end.
