@@ -32,7 +32,7 @@ chmod +x mgit
 
 Running `mgit init` creates the following structure:
 
-```
+```text
 .mgit/
   HEAD          # Points to the current branch (refs/heads/master)
   index         # Staging area (stores "path sha1" entries per line)
