@@ -4,10 +4,10 @@
 main([]) ->
     io:format("Usage: mgit <command> [<arg>]~n"),
     halt(1);
-
-main([Command | _Args]) ->
+main([Command | Args]) ->
     case Command of
         "init" -> init();
+        "add" -> add(Args);
         _ ->
             io:format("Unknown command: ~s~n", [Command]),
             halt(1)
@@ -39,26 +39,99 @@ do_init() ->
         ok ?= file:write_file(filename:join(heads_dir(), "master"), <<>>)
     end.
 
+add([]) ->
+    io:format("Usage: mgit add <filename>~n");
+add([Path | _]) ->
+    case filelib:is_file(Path) of
+        false ->
+            io:format("Error: ~s does not exist.~n", [Path]);
+        true ->
+            case do_add(Path) of
+                {ok, Sha1} ->
+                    io:format("Added ~s to index with hash ~s~n", [Path, Sha1]);
+                {error, Reason} ->
+                    io:format("Error: failed to add ~s to index: ~p~n", [Path, Reason])
+            end
+    end.
+
+-spec do_add(file:filename()) -> {ok, binary()} | {error, term()}.
+do_add(Path) ->
+    maybe
+        {ok, Data} ?= file:read_file(Path),
+        {ok, Sha1} ?= hash_object(Data),
+        {ok, IndexMap} ?= read_index(),
+        ok ?= write_index(IndexMap#{Path => Sha1}),
+        {ok, Sha1}
+    end.
+
 -spec mini_git_dir() -> file:filename().
-mini_git_dir() ->
-    ".mgit".
+mini_git_dir() -> ".mgit".
 
 -spec objects_dir() -> file:filename().
-objects_dir() ->
-    filename:join(mini_git_dir(), "objects").
+objects_dir() -> filename:join(mini_git_dir(), "objects").
 
 -spec refs_dir() -> file:filename().
-refs_dir() ->
-    filename:join(mini_git_dir(), "refs").
+refs_dir() -> filename:join(mini_git_dir(), "refs").
 
 -spec heads_dir() -> file:filename().
-heads_dir() ->
-    filename:join(refs_dir(), "heads").
+heads_dir() -> filename:join(refs_dir(), "heads").
 
 -spec head_file() -> file:filename().
-head_file() ->
-    filename:join(mini_git_dir(), "HEAD").
+head_file() -> filename:join(mini_git_dir(), "HEAD").
 
 -spec index_file() -> file:filename().
-index_file() ->
-    filename:join(mini_git_dir(), "index").
+index_file() -> filename:join(mini_git_dir(), "index").
+
+-spec hash_object(binary()) -> {ok, binary()} | {error, term()}.
+hash_object(Data) ->
+    Sha1 = binary:encode_hex(crypto:hash(sha, Data), lowercase),
+    ObjPath = filename:join(objects_dir(), Sha1),
+    case filelib:is_file(ObjPath) of
+        false ->
+            case file:write_file(ObjPath, zlib:compress(Data)) of
+                ok -> {ok, Sha1};
+                {error, Reason} -> {error, Reason}
+            end;
+        _ -> {ok, Sha1}
+    end.
+
+-spec read_index() -> {ok, map()} | {error, term()}.
+read_index() ->
+    maybe
+        {ok, Fd} ?= file:open(index_file(), [read]),
+        {ok, IndexMap} ?=
+            try read_loop(Fd, #{})
+            after
+                % ensure the file is closed even if there is an error
+                file:close(Fd)
+            end,
+        {ok, IndexMap}
+    end.
+
+-spec read_loop(file:fd(), map()) -> {ok, map()} | {error, term()}.
+read_loop(Fd, Acc) ->
+    case file:read_line(Fd) of
+        {ok, Line} ->
+            [Path, Sha1] = string:split(Line, " "),
+            read_loop(Fd, Acc#{Path => Sha1});
+        eof -> {ok, Acc};
+        {error, Reason} -> {error, Reason}
+    end.
+
+-spec write_index(map()) -> ok | {error, term()}.
+write_index(Index) ->
+    maybe
+        {ok, Fd} ?= file:open(index_file(), [write]),
+        try
+            maps:fold(
+                fun(Key, Value, ok) ->
+                    io:format(Fd, "~s ~s~n", [Key, Value])
+                end,
+                ok, % to detect io:format error by pattern matching
+                Index
+            )
+        after
+            file:close(Fd)
+        end,
+        ok
+    end.
