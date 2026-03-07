@@ -122,16 +122,12 @@ read_loop(Fd, Acc) ->
 write_index(Index) ->
     maybe
         {ok, Fd} ?= file:open(index_file(), [write]),
-        try
-            maps:fold(
-                fun(Key, Value, ok) ->
-                    io:format(Fd, "~s ~s~n", [Key, Value])
-                end,
-                ok, % to detect io:format error by pattern matching
-                Index
-            )
-        after
-            file:close(Fd)
-        end,
-        ok
+        maps:fold(
+            fun(Key, Value, ok) ->
+                io:format(Fd, "~s ~s~n", [Key, Value])
+            end,
+            ok, % to detect io:format error by pattern matching
+            Index
+        ),
+        ok ?= file:close(Fd)
     end.
